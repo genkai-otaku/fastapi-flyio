@@ -1,0 +1,22 @@
+# PR マージ後にブランチを自動削除する
+name: Delete branch on merge
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write  # ブランチ削除に必要
+
+jobs:
+  delete-merged-branch:
+    name: Delete merged branch
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete branch
+        uses: SvanBoxel/delete-merged-branch@main
+        with:
+          exclude: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
