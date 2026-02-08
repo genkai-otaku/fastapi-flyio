@@ -18,7 +18,9 @@ COPY --from=builder /app/.venv .venv/
 COPY . .
 
 # ビルド時に Prisma クライアントを生成（schema の url 用にダミーでよい）
-ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+# Node Prisma CLI が generator として prisma-client-py を呼ぶため PATH に venv/bin を追加
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" \
+    PATH="/app/.venv/bin:$PATH"
 RUN /app/.venv/bin/python -m prisma generate
 
 # Fly.io は internal_port 8080 でプロキシするため、0.0.0.0:8080 でリッスンする
