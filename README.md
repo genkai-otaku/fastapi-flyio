@@ -234,3 +234,30 @@ curl https://<アプリ名>.fly.dev/memos
 
 - 今後スキーマを変更したときは、同様に `fly mpg proxy` のうえで `uv run prisma migrate deploy` を実行する。
 - `DATABASE_URL` を手動で設定する場合は `fly secrets set DATABASE_URL="..."` で行う（MPG アタッチ済みなら上書きになるので通常は不要）。
+
+### DB クライアントで本番 DB を閲覧する
+
+TablePlus・DBeaver・pgAdmin などで本番の Postgres を見るには、上記と同様に **proxy 経由**で接続する。
+
+1. **ターミナルで proxy を起動**（接続している間は起動したままにする）
+
+   ```bash
+   fly mpg proxy
+   ```
+
+   クラスタを選ぶと `Proxying localhost:16380 to remote ...` のように表示される。**ポート番号**（例: 16380）をメモする。
+
+2. **接続情報を用意する**
+
+   - [Fly ダッシュボード](https://fly.io/dashboard) → **Managed Postgres** → クラスタ **memo** → **Connection** タブで接続文字列を確認する。
+   - proxy 用に次のようにする:
+     - **ホスト**: `localhost`
+     - **ポート**: 手順 1 のポート（例: 16380）
+     - **ユーザー**: `fly-user`
+     - **パスワード**: Connection タブに表示されているパスワード
+     - **データベース**: `fly-db`
+   - SSL/TLS は **無効**（proxy 経由のため。クライアントで「SSL を使わない」や `sslmode=disable` を指定する）。
+
+3. **DB クライアントで新規接続を作成**し、上記のホスト・ポート・ユーザー・パスワード・DB 名を入力して接続する。
+
+4. 使い終わったらターミナルで `Ctrl+C` して proxy を止める。
