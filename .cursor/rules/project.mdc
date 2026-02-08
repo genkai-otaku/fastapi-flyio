@@ -1,0 +1,95 @@
+---
+description: FastAPIをFly.ioにデプロイ（uv / Docker PostgreSQL / Prisma / クリーンアーキテクチャ）
+globs:
+alwaysApply: true
+---
+
+## プロジェクト概要
+
+- このリポジトリは **FastAPI** を **Fly.io** にデプロイするための練習リポジトリ
+- **uv** でパッケージ・仮想環境を管理する
+- **Docker** で PostgreSQL を立ててローカル DB 環境を構築する
+- **Prisma**（スキーマ・マイグレーション）と **prisma-client-py** で DB 操作を行う
+- **ドメインベースのクリーンアーキテクチャ** を採用する
+- **テスト** を用意し、**CI/CD** でビルド・テスト・デプロイを自動化する
+
+## 技術スタック
+
+- **言語・ランタイム**: Python 3.x（uv）
+- **Web フレームワーク**: FastAPI
+- **DB**: PostgreSQL（Docker で起動）
+- **ORM・マイグレーション**: Prisma（`schema.prisma`）、Python からは prisma-client-py
+- **テスト**: pytest
+- **CI/CD**: GitHub Actions（または選定した CI）でテスト・Lint・Fly.io デプロイ
+
+## アーキテクチャ（ドメインベースのクリーンアーキテクチャ）
+
+- **ドメイン層**: エンティティ・値オブジェクト・ドメインサービス。ビジネスルールのみで、フレームワークや DB に依存しない
+- **ユースケース層（アプリケーション層）**: ドメインを組み合わせたアプリケーションの振る舞い。インターフェース（リポジトリ等）はここで定義し、実装に依存しない
+- **インフラ層**: DB（Prisma 経由）、外部 API、ファイルシステムなど具体的な実装。リポジトリの実装や Prisma クライアントの利用はここ
+- **インターフェース層（プレゼンテーション層）**: FastAPI のルーター・リクエスト/レスポンスモデル。ユースケースを呼び出し、HTTP に変換する
+- **依存の向き**: 外側（インターフェース・インフラ）が内側（ドメイン・ユースケース）に依存する。ドメインは何にも依存しない
+
+## ディレクトリ構成（要点）
+
+- `app/`: FastAPI アプリのルート
+  - `main.py`: エントリーポイント
+  - `domain/`: ドメイン層（エンティティ、値オブジェクト、ドメインサービス）
+  - `usecases/`: ユースケース層（アプリケーションサービス、リポジトリのインターフェース）
+  - `infrastructure/`: インフラ層（Prisma リポジトリ実装、DB 接続など）
+  - `interfaces/`: インターフェース層（FastAPI ルーター、スキーマ）
+- `prisma/`: Prisma スキーマ・マイグレーション（`schema.prisma` 等）
+- `tests/`: テストコード（ドメイン・ユースケース・API のテスト）
+- `pyproject.toml` / `uv.lock`: uv による依存管理
+- ルート: `Dockerfile`（Fly.io デプロイ用）、`docker-compose.yml`（ローカル PostgreSQL 用）
+
+## 開発環境・ポート
+
+- **API**: `http://localhost:8000`（または設定したポート）
+- **Swagger UI**: `http://localhost:8000/docs`
+- **PostgreSQL**: Docker Compose で起動（ポートは `docker-compose.yml` で指定）
+
+## 代表コマンド（uv 前提）
+
+- `uv sync`: 依存インストール
+- `uv run uvicorn app.main:app --reload`: 開発サーバー起動
+- `uv run pytest`: テスト実行
+- `uv run prisma generate`: Prisma クライアント生成（スキーマ変更後）
+- `uv run prisma migrate dev`: マイグレーション作成・適用（開発時）
+- `docker compose up -d`: ローカル PostgreSQL 起動
+
+## テスト方針（重要）
+
+- **テストフレームワーク**: pytest
+- **テストケースの書き方**: 「**◯◯の場合、◯◯であること**」で統一する（テスト名・docstring もこの形式に寄せる）
+- **正常系と異常系の分離**: 正常系と異常系は **別の `class` または `describe` 相当のグループ** に分けて書く
+- **対象**: ドメイン層・ユースケース層・API（E2E）のテストを用意する。インフラ層は必要に応じてモックまたは統合テストでカバー
+- **DB を使うテスト**: テスト用 DB を Docker で用意するか、SQLite 等でインメモリ化するか方針を決めて実施する
+
+## CI/CD
+
+- **CI**: プッシュ/PR 時に以下を実行する
+  - 依存インストール（uv）
+  - Lint（ruff 等）
+  - 型チェック（pyright 等、任意）
+  - テスト（pytest）
+  - （任意）Prisma generate / migrate の検証
+- **CD**: main ブランチなど所定ブランチへのマージ時に、Fly.io へデプロイする（`fly deploy` 等）。シークレットは CI の Secrets で管理する
+- **設定ファイル**: `.github/workflows/` にワークフローを置く（GitHub Actions の場合）
+
+## コーディング方針（重要）
+
+- **ライブラリの導入**: 新しいライブラリは **公式ドキュメントで推奨されているものから検討**する
+- **型**: 型ヒントを付け、`Any` は避ける。Pydantic でリクエスト/レスポンスを厳密に定義する
+- **FastAPI**: ルーターは薄く保ち、ビジネスロジックはユースケース層に書く
+- **Prisma**: スキーマ変更後は `prisma migrate` と `prisma generate` を忘れない
+- **複雑なロジック**: **日本語コメント**で意図を残す
+- **null を許容しない**: 可能な限り `None` ではなく Optional / 例外 / Result 的な表現で扱う。Prisma 等で null が来る場合は境界で変換する
+- **ループ**: `for` や `list comprehension` を適切に使い分ける。早期 break/return で制御を明確に
+- **条件分岐**: **早期リターン**でネストを浅くする
+
+## デプロイ（Fly.io）
+
+- **ビルド**: Dockerfile で uv を使い依存インストール → アプリ起動（uvicorn 等）
+- **DB**: Fly.io の Postgres をアタッチするか、外部 PostgreSQL の URL を環境変数で渡す
+- **環境変数**: `DATABASE_URL` 等は Fly.io の Secrets で設定する
