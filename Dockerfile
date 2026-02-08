@@ -11,4 +11,5 @@ FROM python:3.9-slim
 WORKDIR /app
 COPY --from=builder /app/.venv .venv/
 COPY . .
-CMD ["/app/.venv/bin/fastapi", "run"]
+# Fly.io は internal_port 8080 でプロキシするため、0.0.0.0:8080 でリッスンする
+CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
