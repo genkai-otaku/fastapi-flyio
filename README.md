@@ -169,5 +169,68 @@ uv run ruff format --check .
 
 - 手動: `fly launch`（初回） / `fly deploy`
 - 自動: `main` にマージすると Deploy ワークフローが走り、Fly.io にデプロイされる。
-- `DATABASE_URL` は Fly の Secrets（`fly secrets set DATABASE_URL=...`）で設定する。
 - リポジトリに `fly.toml` と `Dockerfile` を含めている。既存アプリに合わせる場合は `fly config save -a <アプリ名>` で上書きできる。
+
+### Fly Managed Postgres（MPG）を使う場合
+
+**1. アプリを DB にアタッチ**
+
+Managed Postgres クラスタ作成後、アプリに `DATABASE_URL` を渡す。
+
+```bash
+fly mpg list
+fly mpg attach <クラスタID> -a <アプリ名>
+```
+
+例: `fly mpg attach 82ylg01nykzozx19 -a fastapi-flyio-cjrs7a`
+
+アタッチするとアプリが再起動し、Secrets に `DATABASE_URL` が設定される。
+
+**2. 本番 DB にマイグレーションを実行**
+
+本番の Postgres は Fly のプライベートネットワーク内にあるため、ローカルからは **proxy** 経由で接続する。
+
+- **ターミナル 1**: proxy を起動し、**起動したまま**にする。
+
+  ```bash
+  fly mpg proxy
+  ```
+
+  クラスタを選ぶと、例えば次のように表示される:
+
+  ```text
+  Proxying localhost:16380 to remote [fdaa:...]:5432
+  ```
+
+  この **16380** が「proxy のポート」なのでメモする（環境によって番号は変わる）。
+
+- **ターミナル 2**（新しいターミナルを開く）: ここからが「proxy をやった後」の手順。
+
+  1. **パスワードを用意する**  
+     [Fly ダッシュボード](https://fly.io/dashboard) → 左の **Managed Postgres** → クラスタ **memo** をクリック → **Connection** タブ。  
+     表示されている接続文字列の中の **パスワード**（`fly-user:` の次から `@` の前まで）をコピーする。クラスタ作成時にターミナルに表示されていたパスワードと同じ。
+
+  2. **接続先を「localhost + proxy のポート」にする**  
+     本来の接続文字列は `...@pgbouncer.82ylg01nykzozx19.flympg.net/fly-db` のようになっている。  
+     proxy 経由でつなぐときは、ホストを `localhost`、ポートをターミナル 1 でメモした番号（例: 16380）に変える。
+
+  3. **次の 2 行を実行する**（`16380` を自分の proxy ポートに、`ここにパスワード` を実際のパスワードに置き換える）。proxy 経由では TLS 不要なので `?sslmode=disable` を付ける:
+
+  ```bash
+  export DATABASE_URL="postgresql://fly-user:ここにパスワード@localhost:16380/fly-db?sslmode=disable"
+  uv run prisma migrate deploy
+  ```
+
+  - 成功すると `Applying migration ...` のような表示が出て終了する。
+  - 終わったらターミナル 1 で `Ctrl+C` して proxy を止めてよい。
+
+**3. 動作確認**
+
+```bash
+curl https://<アプリ名>.fly.dev/memos
+```
+
+空配列 `[]` が返れば OK。メモを作成・取得できるかも試す。
+
+- 今後スキーマを変更したときは、同様に `fly mpg proxy` のうえで `uv run prisma migrate deploy` を実行する。
+- `DATABASE_URL` を手動で設定する場合は `fly secrets set DATABASE_URL="..."` で行う（MPG アタッチ済みなら上書きになるので通常は不要）。
