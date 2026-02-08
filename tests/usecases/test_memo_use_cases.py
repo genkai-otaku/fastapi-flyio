@@ -1,10 +1,9 @@
 """メモユースケースのテスト（リポジトリをモック）。"""
+
 from datetime import datetime
-from unittest.mock import AsyncMock
+from typing import Optional
 
 import pytest
-
-from typing import Optional
 
 from app.domain.memo import Memo
 from app.usecases.memo_repository import MemoRepository

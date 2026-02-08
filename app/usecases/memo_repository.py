@@ -1,6 +1,8 @@
 """メモの永続化インターフェース。実装はインフラ層に依存する。"""
+
 from abc import ABC, abstractmethod
-from typing import Optional, Sequence
+from collections.abc import Sequence
+from typing import Optional
 
 from app.domain.memo import Memo
 

@@ -1,11 +1,11 @@
 """メモ API の E2E テスト。DATABASE_URL が設定され DB が利用可能な場合に実行する。"""
+
 import os
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-
 
 # DB が無い環境では E2E をスキップする
 pytestmark = pytest.mark.skipif(

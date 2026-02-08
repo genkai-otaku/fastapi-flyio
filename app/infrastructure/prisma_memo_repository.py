@@ -1,10 +1,10 @@
 """Prisma を使ったメモリポジトリの実装。"""
-from typing import Optional
 
-from prisma import Prisma
+from typing import Optional
 
 from app.domain.memo import Memo
 from app.usecases.memo_repository import MemoRepository
+from prisma import Prisma
 
 
 def _to_domain(row: object) -> Memo:
@@ -25,15 +25,11 @@ class PrismaMemoRepository(MemoRepository):
         self._db = db
 
     async def create(self, title: str, content: str) -> Memo:
-        row = await self._db.memo.create(
-            data={"title": title, "content": content}
-        )
+        row = await self._db.memo.create(data={"title": title, "content": content})
         return _to_domain(row)
 
     async def find_all(self) -> list[Memo]:
-        rows = await self._db.memo.find_many(
-            order={"created_at": "asc"}
-        )
+        rows = await self._db.memo.find_many(order={"created_at": "asc"})
         return [_to_domain(r) for r in rows]
 
     async def find_by_id(self, memo_id: str) -> Optional[Memo]:

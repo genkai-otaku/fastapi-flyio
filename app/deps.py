@@ -1,4 +1,5 @@
 """FastAPI の依存性（DB 取得など）。"""
+
 from fastapi import Request
 
 

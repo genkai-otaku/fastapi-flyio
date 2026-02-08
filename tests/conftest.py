@@ -1,4 +1,5 @@
 """pytest の共通フィクスチャ。"""
+
 import pytest
 from fastapi.testclient import TestClient
 

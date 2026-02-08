@@ -1,4 +1,5 @@
 """メモのアプリケーションサービス（ユースケース）。リポジトリに依存する。"""
+
 from typing import Optional
 
 from app.domain.memo import Memo

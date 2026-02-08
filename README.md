@@ -144,7 +144,30 @@ uv run pytest
 - ドメイン・ユースケースのテストは DB 不要。
 - `tests/api/` の E2E は `DATABASE_URL` が設定されている場合のみ実行される。
 
+## CI/CD（GitHub Actions）
+
+| ワークフロー | トリガー | 内容 |
+|-------------|----------|------|
+| **CI** | `main` への push、`main` 向け PR | Lint（ruff check / format）、テスト（pytest） |
+| **Delete branch** | PR がマージされたとき | マージ元ブランチを自動削除（main は保護） |
+| **Deploy** | `main` への push | Fly.io へデプロイ（`fly deploy`） |
+
+### デプロイに必要な GitHub Secrets
+
+- **FLY_API_TOKEN**: Fly.io のデプロイ用トークン。  
+  `fly tokens create deploy -x 999999h` で発行し、GitHub の Settings → Secrets and variables → Actions に `FLY_API_TOKEN` として登録する。
+
+### ローカルで Lint を回す
+
+```zsh
+uv sync --extra dev
+uv run ruff check .
+uv run ruff format --check .
+```
+
 ## デプロイ（Fly.io）
 
-- `fly launch` / `fly deploy`
-- `DATABASE_URL` は Fly の Secrets で設定する。
+- 手動: `fly launch`（初回） / `fly deploy`
+- 自動: `main` にマージすると Deploy ワークフローが走り、Fly.io にデプロイされる。
+- `DATABASE_URL` は Fly の Secrets（`fly secrets set DATABASE_URL=...`）で設定する。
+- リポジトリに `fly.toml` と `Dockerfile` を含めている。既存アプリに合わせる場合は `fly config save -a <アプリ名>` で上書きできる。

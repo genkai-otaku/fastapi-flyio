@@ -1,7 +1,6 @@
 """メモエンティティのテスト。"""
-from datetime import datetime
 
-import pytest
+from datetime import datetime
 
 from app.domain.memo import Memo
 
